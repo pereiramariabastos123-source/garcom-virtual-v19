@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Garçom Virtual V19 — Sabor da Casa</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="adminApp">
+  <aside class="sidebar">
+    <div class="brand"><div class="brand-title">🍽️ Garçom Virtual</div><small>Sabor da Casa</small></div>
+    <nav>
+      <button data-page="inicio">📊 Início</button>
+      <button data-page="cardapio">🍽️ Cardápio</button>
+      <button data-page="categorias">📂 Categorias</button>
+      <button data-page="promocoes">🏷️ Promoções</button>
+      <button data-page="mesas">🪑 Mesas</button>
+      <button data-page="configuracoes">⚙️ Configurações</button>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div><small>PAINEL ADMINISTRATIVO</small><strong id="pageTitle">Visão geral</strong></div>
+      <span>🍴 Sabor da Casa</span>
+    </header>
+
+    <section id="inicio" class="page active">
+      <div class="hero"><h1>Restaurante Sabor da Casa</h1><p>V19 — Garçom Virtual conectado à IA da OpenAI com respostas curtas.</p></div>
+      <div class="stats">
+        <div><span>🍽️</span><b id="prodCount">0</b><small>Produtos</small></div>
+        <div><span>🟢</span><b id="availableCount">0</b><small>Disponíveis</small></div>
+        <div><span>🟡</span><b id="soldOutCount">0</b><small>Esgotados</small></div>
+        <div><span>🔴</span><b id="hiddenCount">0</b><small>Ocultos</small></div>
+      </div>
+    </section>
+
+    <section id="cardapio" class="page">
+      <div class="title">
+        <div><h1>Cardápio</h1><p>Gerencie produtos, preços, fotos e disponibilidade.</p></div>
+        <button class="primary" id="addProductBtn">+ Adicionar produto</button>
+      </div>
+      <div id="productsList" class="admin-products"></div>
+    </section>
+
+    <section id="categorias" class="page">
+      <div class="title"><div><h1>Categorias</h1><p>Organização do cardápio.</p></div></div>
+      <div id="categoriesGrid" class="grid small-grid"></div>
+    </section>
+
+    <section id="promocoes" class="page">
+      <div class="empty"><div class="big">🏷️</div><h1>Promoções</h1><p>Área reservada para promoções futuras.</p></div>
+    </section>
+
+    <section id="mesas" class="page">
+      <div class="title"><div><h1>Mesas e QR Codes</h1><p>Cada mesa abre o Garçom Virtual identificando a mesa.</p></div><button class="primary" id="addMesa">+ Adicionar mesa</button></div>
+      <div id="mesasGrid" class="grid mesas"></div>
+    </section>
+
+    <section id="configuracoes" class="page">
+      <div class="settings-card">
+        <h1>Configurações</h1>
+        <label>Nome do restaurante<input value="Restaurante Sabor da Casa"></label>
+        <label>Nome do atendente virtual<input value="Garçom Virtual"></label>
+        <label>Mensagem inicial<textarea>Olá! 👋 Sou o Garçom Virtual do Sabor da Casa. Posso ajudar você a escolher seu pedido.</textarea></label>
+        <button class="primary">Salvar configurações</button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="clientApp" class="client-shell" hidden>
+  <div class="client-top">
+    <div class="restaurant-line"><span class="restaurant-logo">🍽️</span><div><small>RESTAURANTE</small><strong>Sabor da Casa</strong></div><span class="online-dot">● Online</span></div>
+    <div class="waiter-head"><div class="waiter-avatar">👨‍🍳</div><div><h1>Garçom Virtual</h1><div>Seu atendimento digital</div></div></div>
+  </div>
+  <div class="client-content">
+    <div class="mesa-banner"><div><small>ATENDIMENTO DA</small><b id="clientMesa"></b></div><span>✓ Conectado</span></div>
+    <div class="welcome-card"><b>Olá! Que bom ter você aqui 👋</b><span>Posso mostrar o cardápio, fotos, preços e ajudar você a escolher.</span></div>
+    <div class="section-label">O que você gostaria?</div>
+    <div class="quick">
+      <button onclick="sendQuick('ver pratos')"><span>🍛</span><b>Pratos</b><small>Ver opções</small></button>
+      <button onclick="sendQuick('ver lanches')"><span>🍔</span><b>Lanches</b><small>Ver opções</small></button>
+      <button onclick="sendQuick('ver bebidas')"><span>🥤</span><b>Bebidas</b><small>Ver opções</small></button>
+      <button onclick="sendQuick('tenho 30 reais')"><span>✨</span><b>Me recomenda</b><small>Até R$ 30</small></button>
+    </div>
+    <div id="chatThread" class="chat-thread"><div class="msg bot">Pode falar comigo normalmente 😊 Por exemplo: <b>“me mostra o suco de laranja”</b> ou <b>“o que você recomenda?”</b></div></div>
+    <div class="composer-wrap">
+      <div class="inputrow"><input id="chatInput" placeholder="Pergunte sobre o cardápio..."><button onclick="handleSend()" aria-label="Enviar">➤</button></div>
+      <small>Garçom Virtual • Sabor da Casa</small>
+    </div>
+  </div>
+</div>
+
+<div id="productModal" class="modal">
+  <div class="box product-box">
+    <button class="x" id="closeProductModal">×</button>
+    <h2 id="productModalTitle">Novo produto</h2>
+    <form id="productForm">
+      <input type="hidden" name="id">
+      <label>Nome<input name="name" required></label>
+      <div class="form-row">
+        <label>Categoria<select name="category"><option>Pratos</option><option>Lanches</option><option>Bebidas</option><option>Sobremesas</option></select></label>
+        <label>Preço<input name="price" required inputmode="decimal"></label>
+      </div>
+      <label>Descrição<textarea name="description"></textarea></label>
+      <label>Ingredientes<textarea name="ingredients"></textarea></label>
+      <label>Foto do produto
+        <div class="photo-editor">
+          <div class="photo-preview-wrap">
+            <img id="photoPreview" class="photo-preview" alt="Prévia da foto">
+            <div id="photoPlaceholder" class="photo-placeholder">📷<small>Nenhuma foto selecionada</small></div>
+          </div>
+          <div class="photo-controls">
+            <input type="file" id="photoFile" accept="image/*">
+            <button type="button" class="secondary" id="choosePhotoBtn">📷 Escolher / trocar foto</button>
+            <button type="button" class="secondary" id="removePhotoBtn">Remover foto</button>
+            <small>A foto fica salva neste navegador durante o protótipo.</small>
+          </div>
+        </div>
+        <input type="hidden" name="image">
+      </label>
+      <label>Status<select name="status"><option value="disponivel">🟢 Disponível</option><option value="esgotado">🟡 Esgotado hoje</option><option value="oculto">🔴 Oculto</option></select></label>
+      <div class="modal-actions"><button type="button" class="secondary" id="cancelProduct">Cancelar</button><button class="primary" type="submit">Salvar</button></div>
+    </form>
+  </div>
+</div>
+
+<div id="qrModal" class="modal">
+  <div class="box">
+    <button class="x" id="closeQr">×</button><h2 id="qrTitle"></h2>
+    <div id="qrcode"></div><p id="mlink"></p>
+    <button class="primary" id="testarCliente">Abrir tela do cliente</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>const DEFAULT_PRODUCTS=[{"id": 1, "name": "Frango Caseiro", "category": "Pratos", "price": 25, "image": "fotos/frango-caseiro.jpg", "status": "disponivel", "description": "Arroz, feijão, frango e salada.", "ingredients": "arroz, feijão, frango, salada"}, {"id": 2, "name": "Bife Acebolado", "category": "Pratos", "price": 29, "image": "fotos/bife-acebolado.jpg", "status": "disponivel", "description": "Bife acebolado com arroz, feijão e farofa.", "ingredients": "carne, bife, cebola, arroz, feijão, farofa"}, {"id": 3, "name": "Lasanha à Bolonhesa", "category": "Pratos", "price": 27, "image": "fotos/lasanha-bolonhesa.jpg", "status": "disponivel", "description": "Lasanha com molho bolonhesa e queijo.", "ingredients": "massa, carne moída, molho de tomate, queijo"}, {"id": 4, "name": "Peixe Frito", "category": "Pratos", "price": 32, "image": "fotos/peixe-frito.jpg", "status": "disponivel", "description": "Peixe frito com arroz, salada e farofa.", "ingredients": "peixe, arroz, salada, farofa"}, {"id": 5, "name": "X-Burger", "category": "Lanches", "price": 16, "image": "fotos/x-burger.jpg", "status": "disponivel", "description": "Pão, carne, queijo, alface e tomate.", "ingredients": "pão, carne, queijo, alface, tomate"}, {"id": 6, "name": "X-Salada", "category": "Lanches", "price": 18, "image": "fotos/x-salada.jpg", "status": "disponivel", "description": "Pão, carne, queijo, presunto, alface e tomate.", "ingredients": "pão, carne, queijo, presunto, alface, tomate"}, {"id": 7, "name": "Misto Quente", "category": "Lanches", "price": 9, "image": "fotos/misto-quente.jpg", "status": "oculto", "description": "Pão, queijo e presunto.", "ingredients": "pão, queijo, presunto"}, {"id": 8, "name": "Coca-Cola 350 ml", "category": "Bebidas", "price": 6, "image": "fotos/coca-cola.jpg", "status": "disponivel", "description": "Refrigerante Coca-Cola lata 350 ml.", "ingredients": ""}, {"id": 9, "name": "Guaraná 350 ml", "category": "Bebidas", "price": 5, "image": "fotos/guarana.jpg", "status": "disponivel", "description": "Refrigerante de guaraná lata 350 ml.", "ingredients": ""}, {"id": 10, "name": "Suco de Laranja", "category": "Bebidas", "price": 7, "image": "fotos/suco-laranja.jpg", "status": "disponivel", "description": "Suco de laranja gelado.", "ingredients": "laranja"}, {"id": 11, "name": "Água Mineral", "category": "Bebidas", "price": 3.5, "image": "fotos/agua.jpg", "status": "disponivel", "description": "Água mineral 500 ml.", "ingredients": ""}];</script>
+<script src="app.js"></script>
+</body></html>

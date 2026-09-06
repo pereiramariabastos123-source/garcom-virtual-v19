@@ -1,0 +1,18 @@
+{
+  "name": "garcom-virtual-sabor-da-casa-v19",
+  "version": "19.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "start:local": "node server-local.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.2",
+    "express": "^5.1.0",
+    "openai": "^5.19.1"
+  }
+}
