@@ -1,0 +1,112 @@
+[
+  {
+    "id": 1,
+    "name": "Frango Caseiro",
+    "category": "Pratos",
+    "price": 25,
+    "image": "fotos/frango-caseiro.jpg",
+    "status": "disponivel",
+    "description": "Arroz, feijão, frango e salada.",
+    "ingredients": "arroz, feijão, frango, salada"
+  },
+  {
+    "id": 2,
+    "name": "Bife Acebolado",
+    "category": "Pratos",
+    "price": 29,
+    "image": "fotos/bife-acebolado.jpg",
+    "status": "disponivel",
+    "description": "Bife acebolado com arroz, feijão e farofa.",
+    "ingredients": "carne, bife, cebola, arroz, feijão, farofa"
+  },
+  {
+    "id": 3,
+    "name": "Lasanha à Bolonhesa",
+    "category": "Pratos",
+    "price": 27,
+    "image": "fotos/lasanha-bolonhesa.jpg",
+    "status": "disponivel",
+    "description": "Lasanha com molho bolonhesa e queijo.",
+    "ingredients": "massa, carne moída, molho de tomate, queijo"
+  },
+  {
+    "id": 4,
+    "name": "Peixe Frito",
+    "category": "Pratos",
+    "price": 32,
+    "image": "fotos/peixe-frito.jpg",
+    "status": "disponivel",
+    "description": "Peixe frito com arroz, salada e farofa.",
+    "ingredients": "peixe, arroz, salada, farofa"
+  },
+  {
+    "id": 5,
+    "name": "X-Burger",
+    "category": "Lanches",
+    "price": 16,
+    "image": "fotos/x-burger.jpg",
+    "status": "disponivel",
+    "description": "Pão, carne, queijo, alface e tomate.",
+    "ingredients": "pão, carne, queijo, alface, tomate"
+  },
+  {
+    "id": 6,
+    "name": "X-Salada",
+    "category": "Lanches",
+    "price": 18,
+    "image": "fotos/x-salada.jpg",
+    "status": "disponivel",
+    "description": "Pão, carne, queijo, presunto, alface e tomate.",
+    "ingredients": "pão, carne, queijo, presunto, alface, tomate"
+  },
+  {
+    "id": 7,
+    "name": "Misto Quente",
+    "category": "Lanches",
+    "price": 9,
+    "image": "fotos/misto-quente.jpg",
+    "status": "oculto",
+    "description": "Pão, queijo e presunto.",
+    "ingredients": "pão, queijo, presunto"
+  },
+  {
+    "id": 8,
+    "name": "Coca-Cola 350 ml",
+    "category": "Bebidas",
+    "price": 6,
+    "image": "fotos/coca-cola.jpg",
+    "status": "disponivel",
+    "description": "Refrigerante Coca-Cola lata 350 ml.",
+    "ingredients": ""
+  },
+  {
+    "id": 9,
+    "name": "Guaraná 350 ml",
+    "category": "Bebidas",
+    "price": 5,
+    "image": "fotos/guarana.jpg",
+    "status": "disponivel",
+    "description": "Refrigerante de guaraná lata 350 ml.",
+    "ingredients": ""
+  },
+  {
+    "id": 10,
+    "name": "Suco de Laranja",
+    "category": "Bebidas",
+    "price": 7,
+    "image": "fotos/suco-laranja.jpg",
+    "status": "disponivel",
+    "description": "Suco de laranja gelado.",
+    "ingredients": "laranja"
+  },
+  {
+    "id": 11,
+    "name": "Água Mineral",
+    "category": "Bebidas",
+    "price": 3.5,
+    "image": "fotos/agua.jpg",
+    "status": "disponivel",
+    "description": "Água mineral 500 ml.",
+    "ingredients": ""
+  }
+]
