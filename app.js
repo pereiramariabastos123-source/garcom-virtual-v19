@@ -12,12 +12,12 @@ let products=[...DEFAULT_PRODUCTS];
 let mesas=JSON.parse(storageGet(STORAGE_TABLES)||"null")||[1,2,3,4,5,6];
 let activeMesa=1;
 let publicBaseUrl="";
-let adminPassword=sessionStorage.getItem("gv19_admin_password")||"";
+let adminPassword=sessionStorage.getItem("gv26_admin_password")||sessionStorage.getItem("gv24_admin_password")||"";
 let conversation={
-  lastProduct:null,
-  lastRecommendation:null,
-  awaitingPhoto:false,
-  awaitingDrink:false
+  focusedProduct:null,
+  pendingModificationProduct:null,
+  pendingRecommendationProduct:null,
+  awaitingFinalize:false
 };
 let cart=[];
 const ORDER_KEY="gv14_orders";
@@ -66,7 +66,7 @@ async function ensureAdminAccess(){
     const pwd=prompt("Senha do painel administrativo:");
     if(pwd===null)return false;
     adminPassword=pwd;
-    sessionStorage.setItem("gv19_admin_password",pwd);
+    sessionStorage.setItem("gv26_admin_password",pwd);
   }
   alert("Senha do painel incorreta.");
   return false;
@@ -125,16 +125,23 @@ function startClientOrderStatusWatch(id){
 }
 
 function cartTotal(){return cart.reduce((s,x)=>s+(x.price*x.qty),0)}
-function cartAddByName(name,qty=1){
-  const p=findProductByName(name);
+function cartCount(){return cart.reduce((s,x)=>s+x.qty,0)}
+function findProductExactName(name){
+  const n=normalize(name||"");
+  return products.find(p=>normalize(p.name)===n)||null;
+}
+function cartAddByName(name,qty=1,note=""){
+  // IMPORTANT: actions from the server must match an official product exactly.
+  const p=findProductExactName(name);
   if(!p||p.status!=="disponivel")return false;
-  const x=cart.find(i=>i.id===p.id);
-  if(x)x.qty+=Math.max(1,Number(qty)||1);
-  else cart.push({id:p.id,name:p.name,price:p.price,qty:Math.max(1,Number(qty)||1)});
+  const cleanNote=String(note||"").trim().slice(0,180);
+  const amount=Math.max(1,Math.min(20,Number(qty)||1));
+  const x=cart.find(i=>i.id===p.id && String(i.note||"")===cleanNote);
+  if(x)x.qty+=amount;
+  else cart.push({id:p.id,name:p.name,price:p.price,image:p.image||"",qty:amount,note:cleanNote});
   updateCartBadge();
   return true;
 }
-function cartCount(){return cart.reduce((s,x)=>s+x.qty,0)}
 function updateCartBadge(){
   const n=cartCount();
   const total=cartTotal();
@@ -145,130 +152,73 @@ function updateCartBadge(){
 }
 function cartHTML(){
   if(!cart.length)return `<div class="emptycart">Seu pedido ainda está vazio.</div>`;
-  return `<div class="cartitems">${cart.map(x=>`
+  return `<div class="cartitems">${cart.map((x,index)=>`
     <div class="cartitem">
-      <div class="cartitem-main">
-        <b>${x.name}</b>
-        <span>${money(x.price)}</span>
-      </div>
-      <div class="qtyrow">
-        <button onclick="changeQty(${x.id},-1)">−</button>
-        <span>${x.qty}</span>
-        <button onclick="changeQty(${x.id},1)">+</button>
-        <button class="trashbtn" onclick="removeFromCart(${x.id})">🗑️</button>
+      <div class="cartproductrow">
+        ${x.image?`<img class="cartthumb" src="${escapeHTML(x.image)}" alt="${escapeHTML(x.name)}">`:`<div class="cartthumb cartthumb-empty">📷</div>`}
+        <div class="cartproductinfo">
+          <div class="cartitem-main"><b>${escapeHTML(x.name)}</b><span>${money(x.price)}</span></div>
+          ${x.note?`<div class="cart-note"><b>Observação:</b> ${escapeHTML(x.note)}</div>`:""}
+          <div class="qtyrow">
+            <button onclick="changeQty(${index},-1)">−</button>
+            <span>${x.qty}</span>
+            <button onclick="changeQty(${index},1)">+</button>
+            <button class="trashbtn" onclick="removeFromCart(${index})">🗑️</button>
+          </div>
+        </div>
       </div>
     </div>`).join("")}</div>
     <div class="cartsummary"><span>Total</span><b>${money(cartTotal())}</b></div>
     <button class="confirmbtn" onclick="confirmOrder()">✓ Confirmar pedido</button>
     <button class="clearbtn" onclick="clearCart()">🗑 Limpar pedido</button>`;
 }
-function renderCartPanel(){
-  updateCartBadge();
-  const body=document.getElementById("cartPanelBody");
-  if(body)body.innerHTML=cartHTML();
+function renderCartPanel(){updateCartBadge();const body=document.getElementById("cartPanelBody");if(body)body.innerHTML=cartHTML()}
+function openCart(){renderCartPanel();document.getElementById("cartPanel")?.classList.add("open");document.getElementById("cartOverlay")?.classList.add("open")}
+function closeCart(){document.getElementById("cartPanel")?.classList.remove("open");document.getElementById("cartOverlay")?.classList.remove("open")}
+function changeQty(index,delta){
+  const x=cart[index];if(!x)return;x.qty+=delta;if(x.qty<=0)cart.splice(index,1);renderCartPanel();
 }
-function openCart(){
-  renderCartPanel();
-  const p=document.getElementById("cartPanel");
-  const o=document.getElementById("cartOverlay");
-  if(p)p.classList.add("open");
-  if(o)o.classList.add("open");
-}
-function closeCart(){
-  document.getElementById("cartPanel")?.classList.remove("open");
-  document.getElementById("cartOverlay")?.classList.remove("open");
-}
-function changeQty(id,delta){
-  const x=cart.find(i=>i.id===id);
-  if(!x)return;
-  x.qty+=delta;
-  if(x.qty<=0)cart=cart.filter(i=>i.id!==id);
-  renderCartPanel();
-}
-function removeFromCart(id){
-  cart=cart.filter(i=>i.id!==id);
-  renderCartPanel();
-}
-function showCart(msg=""){
-  if(msg)addBot(msg);
-  openCart();
-}
-function clearCart(){
-  cart=[];
-  renderCartPanel();
-  addBot("Pedido limpo.");
-}
+function removeFromCart(index){if(index>=0&&index<cart.length)cart.splice(index,1);renderCartPanel()}
+function showCart(msg=""){if(msg)addBot(msg);openCart()}
+function clearCart(){cart=[];conversation.awaitingFinalize=false;renderCartPanel();addBot("Pedido limpo.")}
 async function confirmOrder(){
   if(!cart.length){addBot("Seu pedido está vazio.");openCart();return}
-  const draft={mesa:String(activeMesa).padStart(2,"0"),items:cart.map(x=>({...x})),total:cartTotal()};
+  const draft={mesa:String(activeMesa).padStart(2,"0"),items:cart.map(x=>({id:x.id,name:x.name,price:x.price,qty:x.qty,note:x.note||""})),total:cartTotal()};
   try{
-    const order=await apiCreateOrder(draft);
-    lastConfirmedOrder=order;
-    cart=[];
-    renderCartPanel();
-    closeCart();
-    showConfirmedOrder(order);
-  }catch(err){
-    console.warn(err);
-    addBot("Não consegui enviar o pedido agora. Tente novamente.");
-  }
+    const order=await apiCreateOrder(draft);lastConfirmedOrder=order;cart=[];conversation.awaitingFinalize=false;renderCartPanel();closeCart();showConfirmedOrder(order);
+  }catch(err){console.warn(err);addBot("Não consegui enviar o pedido agora. Tente novamente.")}
 }
 function statusStepsHTML(status){
   const order=["novo","preparo","pronto","finalizado"];
   const labels={novo:"Recebido",preparo:"Em preparo",pronto:"Pronto",finalizado:"Finalizado"};
   const current=Math.max(0,order.indexOf(status));
-  return `<div class="client-status-steps">${order.slice(0,3).map((s,i)=>`
-    <div class="client-step ${i<=current?"active":""}">
-      <span>${i<current?"✓":i+1}</span><small>${labels[s]}</small>
-    </div>`).join("")}</div>`;
+  return `<div class="client-status-steps">${order.slice(0,3).map((s,i)=>`<div class="client-step ${i<=current?"active":""}"><span>${i<current?"✓":i+1}</span><small>${labels[s]}</small></div>`).join("")}</div>`;
 }
 function showConfirmedOrder(order){
   const code=String(order.id).slice(-4);
-  const html=`<div class="confirmedbox">
-    <div class="confirmedcheck">✓</div>
-    <b>Pedido confirmado!</b>
-    <div>Mesa ${order.mesa} • Pedido #${code}</div>
-    <div class="confirmeditems">${order.items.map(x=>`${x.qty}x ${x.name}`).join("<br>")}</div>
-    <div class="confirmedtotal">Total: <b>${money(order.total)}</b></div>
-    <div id="clientOrderStatus-${order.id}" class="client-order-status">
-      ${statusStepsHTML(order.status||"novo")}
-      <div class="confirmedstatus">Pedido recebido pelo restaurante.</div>
-    </div>
-  </div>`;
-  addBot(html);
-  startClientOrderStatusWatch(order.id);
+  const items=(order.items||[]).map(x=>`${x.qty}x ${escapeHTML(x.name)}${x.note?`<br><small class="confirmed-note">↳ ${escapeHTML(x.note)}</small>`:""}`).join("<br>");
+  const html=`<div class="confirmedbox"><div class="confirmedcheck">✓</div><b>Pedido confirmado!</b><div>Mesa ${escapeHTML(order.mesa)} • Pedido #${code}</div><div class="confirmeditems">${items}</div><div class="confirmedtotal">Total: <b>${money(order.total)}</b></div><div id="clientOrderStatus-${order.id}" class="client-order-status">${statusStepsHTML(order.status||"novo")}<div class="confirmedstatus">Pedido recebido pelo restaurante.</div></div></div>`;
+  addBot(html);startClientOrderStatusWatch(order.id);
 }
 
 let aiHistory=[];
 let aiBusy=false;
 
-function escapeHTML(s){
-  return String(s||"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[ch]));
-}
-function menuForAI(){
-  return products.map(p=>({
-    id:p.id,
-    name:p.name,
-    category:p.category,
-    price:p.price,
-    description:p.description||"",
-    ingredients:p.ingredients||"",
-    status:p.status
-  }));
-}
-function findProductByName(name){
-  const n=normalize(name||"");
-  return products.find(p=>normalize(p.name)===n) || products.find(p=>n && (normalize(p.name).includes(n)||n.includes(normalize(p.name))));
+function escapeHTML(s){return String(s||"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[ch]))}
+function mergeConversationContext(update){
+  if(!update||typeof update!=="object")return;
+  for(const key of ["focusedProduct","pendingModificationProduct","pendingRecommendationProduct","awaitingFinalize"]){
+    if(Object.prototype.hasOwnProperty.call(update,key))conversation[key]=update[key];
+  }
 }
 async function askAI(text){
   const r=await fetch("/api/chat",{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
+    method:"POST",headers:{"Content-Type":"application/json"},
     body:JSON.stringify({
       message:text,
-      history:aiHistory.slice(-10),
-      menu:menuForAI(),
-      cart:cart.map(x=>({name:x.name,qty:x.qty,price:x.price}))
+      history:aiHistory.slice(-12),
+      context:{...conversation,clientHour:new Date().getHours()},
+      cart:cart.map(x=>({name:x.name,qty:x.qty,price:x.price,note:x.note||""}))
     })
   });
   const data=await r.json().catch(()=>({}));
@@ -276,31 +226,32 @@ async function askAI(text){
   return data;
 }
 async function respond(text){
-  if(aiBusy)return;
-  aiBusy=true;
-  const input=document.getElementById("chatInput");
-  if(input)input.disabled=true;
+  if(aiBusy)return;aiBusy=true;
+  const input=document.getElementById("chatInput");if(input)input.disabled=true;
   try{
     const data=await askAI(text);
     const reply=String(data.reply||"Ok.").trim();
-    aiHistory.push({role:"user",content:text});
-    aiHistory.push({role:"assistant",content:reply});
+    aiHistory.push({role:"user",content:text});aiHistory.push({role:"assistant",content:reply});
+    mergeConversationContext(data.context);
+
+    // Critical rule: only exact official product names returned by our deterministic server are accepted.
     if(Array.isArray(data.add_items)){
-      data.add_items.forEach(x=>cartAddByName(x.name,x.qty));
+      for(const x of data.add_items.slice(0,10))cartAddByName(x.name,x.qty,x.note||"");
+      renderCartPanel();
     }
+
     let html=escapeHTML(reply);
-    if(data.show_cart)setTimeout(openCart,50);
     if(data.show_product){
-      const p=findProductByName(data.show_product);
-      if(p && p.status!=="oculto")html+=pcard(p);
+      const p=findProductExactName(data.show_product);
+      if(p&&p.status!=="oculto")html+=pcard(p);
     }
     addBot(html);
+    if(data.show_cart)setTimeout(openCart,80);
   }catch(err){
-    console.warn("IA indisponível; usando modo local.",err);
-    respondLocal(text);
+    console.warn("Atendimento indisponível",err);
+    addBot("O atendimento está temporariamente indisponível. Tente novamente em instantes.");
   }finally{
-    aiBusy=false;
-    if(input){input.disabled=false;input.focus()}
+    aiBusy=false;if(input){input.disabled=false;input.focus()}
   }
 }
 
@@ -318,6 +269,7 @@ function statusMeta(s){
 }
 
 function page(id){
+  document.getElementById("restaurantOrdersSection")?.classList.remove("active");
   document.querySelectorAll(".page").forEach(x=>x.classList.toggle("active",x.id===id));
   document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("active",x.dataset.page===id));
   const titles={inicio:"Visão geral",cardapio:"Cardápio",categorias:"Categorias",promocoes:"Promoções",mesas:"Mesas",configuracoes:"Configurações"};
@@ -510,76 +462,11 @@ function naturalRecommendation(){
   const meals=available().filter(p=>p.category==="Pratos");
   const p=meals[0]||available().find(p=>p.category!=="Bebidas");
   if(!p)return "No momento não encontrei uma opção disponível para recomendar.";
-  conversation.lastProduct=p; conversation.lastRecommendation=p; conversation.awaitingPhoto=true;
+  conversation.focusedProduct=p.name;
   return `Uma boa pedida é o <b>${p.name}</b> por <b>${money(p.price)}</b>. 😋 ${p.description||""}<br><br>Quer que eu mostre a foto?`;
 }
 function respondLocal(text){
-  const q=normalize(text);
-
-  if(/quem descobriu|futebol|politica|presidente|capital do/.test(q)){
-    addBot("Posso ajudar com o cardápio, pratos, bebidas, preços, fotos e sugestões do Sabor da Casa. 😊");return
-  }
-
-  // Respostas curtas que dependem da conversa anterior.
-  if(/^(sim|pode|quero|claro|mostra|mostrar|manda|pode ser)$/.test(q) && conversation.awaitingPhoto && conversation.lastProduct){
-    const p=conversation.lastProduct;
-    conversation.awaitingPhoto=false;
-    addBot(`Claro! Aqui está o <b>${p.name}</b>.${pcard(p)}<br>Se quiser, também posso sugerir uma bebida para acompanhar.`);return
-  }
-  if(/^(sim|pode|quero|claro|pode ser)$/.test(q) && conversation.awaitingDrink){
-    conversation.awaitingDrink=false; addBot(drinkOptions()); return
-  }
-  if(/nao gostei|outra coisa|outra opcao|tem outro|tem outra|prefiro outro/.test(q)){
-    const p=alternativeTo(conversation.lastProduct);
-    if(p){
-      conversation.lastProduct=p;conversation.lastRecommendation=p;conversation.awaitingPhoto=true;
-      addBot(`Sem problema 😊 Outra opção é o <b>${p.name}</b> por <b>${money(p.price)}</b>. ${p.description||""}<br><br>Quer ver a foto?`);
-    }else addBot("No momento não encontrei outra opção disponível.");
-    return
-  }
-
-  if(/ver pratos|quais pratos|mostrar pratos/.test(q)){addBot(listCategory("Pratos"));return}
-  if(/ver lanches|quais lanches|mostrar lanches/.test(q)){addBot(listCategory("Lanches"));return}
-  if(/ver bebidas|quais bebidas|mostrar bebidas/.test(q)){addBot(listCategory("Bebidas"));return}
-
-  const budget=extractBudget(q);
-  if(budget!==null && /(tenho|ate|orcamento|reais|r\$|gastar)/.test(q)){
-    addBot(recommendBudget(budget));return
-  }
-
-  if(/muita fome|bastante fome|estou com fome|to com fome/.test(q)){
-    const meals=available().filter(p=>p.category==="Pratos").sort((a,b)=>b.price-a.price);
-    const p=budget!==null ? meals.filter(x=>x.price<=budget)[0] : meals[0];
-    if(p){
-      conversation.lastProduct=p;conversation.lastRecommendation=p;conversation.awaitingPhoto=true;
-      const drink=available().filter(x=>x.category==="Bebidas" && (!budget || x.price+p.price<=budget)).sort((a,b)=>a.price-b.price)[0];
-      let extra=drink?` Se quiser, pode acompanhar com <b>${drink.name}</b> por ${money(drink.price)}.`:"";
-      addBot(`Para quem está com bastante fome, eu sugiro o <b>${p.name}</b> por <b>${money(p.price)}</b>. ${p.description||""}${extra}<br><br>Quer ver a foto?`);return
-    }
-  }
-
-  if(/recomenda|recomendacao|sugestao|sugere|nao sei o que/.test(q)){addBot(naturalRecommendation());return}
-
-  const p=findProduct(q);
-  if(p){
-    conversation.lastProduct=p;
-    if(p.status==="oculto"){addBot("Esse item não faz parte das opções disponíveis no momento. Posso mostrar outras opções.");return}
-    if(p.status==="esgotado"){
-      const alt=alternativeTo(p);
-      addBot(`Hoje o <b>${p.name}</b> está esgotado.${alt?` Posso sugerir o <b>${alt.name}</b> por <b>${money(alt.price)}</b>.`:" Posso procurar outra opção."}`);return
-    }
-    if(/foto|mostra|mostrar|como e|ver/.test(q)){conversation.awaitingPhoto=false;addBot(`Claro! Este é o <b>${p.name}</b>, por <b>${money(p.price)}</b>.${pcard(p)}`);return}
-    if(/preco|quanto custa|valor/.test(q)){addBot(`<b>${p.name}</b> custa <b>${money(p.price)}</b>.`);return}
-    if(p.category!=="Bebidas"){
-      conversation.awaitingDrink=true;
-      addBot(`<b>${p.name}</b> está disponível por <b>${money(p.price)}</b>. ${p.description||""}<br><br>Quer acrescentar uma bebida? 🥤`);return
-    }
-    addBot(`<b>${p.name}</b> está disponível por <b>${money(p.price)}</b>. ${p.description||""}`);return
-  }
-
-  if(/bebida|beber|acompanhar/.test(q)){addBot(drinkOptions());return}
-
-  addBot('Posso ajudar você a escolher 😊 Diga, por exemplo: <b>“estou com bastante fome”</b>, <b>“tenho R$ 40”</b>, <b>“quero algo com frango”</b> ou <b>“me recomenda um prato”</b>.');
+  addBot("O atendimento está temporariamente indisponível. Tente novamente em instantes.");
 }
 function handleSend(){const i=document.getElementById("chatInput"),t=i.value.trim();if(!t||aiBusy)return;addUser(t);i.value="";respond(t)}
 
@@ -629,7 +516,7 @@ function quickAddProduct(id){
 function visualRecommendation(){
   const p=available().filter(x=>x.category!=="Bebidas").sort((a,b)=>a.price-b.price).find(x=>x.price<=30) || available().find(x=>x.category!=="Bebidas");
   if(!p){addBot("Não encontrei uma opção disponível.");return}
-  conversation.lastProduct=p;
+  conversation.focusedProduct=p.name;
   addBot(`Recomendo ${p.name} por ${money(p.price)}.${pcard(p)}<button class="inlineadd" onclick="quickAddProduct(${p.id})">+ Adicionar ao pedido</button>`);
 }
 
@@ -652,6 +539,7 @@ async function boot(){
     document.getElementById("adminApp").hidden=true;
     document.getElementById("clientApp").hidden=false;
     document.getElementById("clientMesa").textContent="Mesa "+String(activeMesa).padStart(2,"0");
+    const cartMesaEl=document.getElementById("cartMesa");if(cartMesaEl)cartMesaEl.textContent=String(activeMesa).padStart(2,"0");
     document.getElementById("chatInput").addEventListener("keydown",e=>{if(e.key==="Enter")handleSend()});
   }else{
     const allowed=await ensureAdminAccess();
@@ -663,11 +551,9 @@ async function boot(){
     document.getElementById("adminApp").hidden=false;
     document.getElementById("clientApp").hidden=true;
     document.querySelectorAll("nav button").forEach(b=>b.addEventListener("click",()=>page(b.dataset.page)));
-    refreshAdmin(); page("inicio");
+    refreshAdmin(); page("inicio"); startRestaurantOrderMonitor();
   }
 }
-boot();
-
 
 let restaurantOrdersTimer=null;
 let lastSeenNewOrderIds=new Set();
@@ -677,7 +563,7 @@ function orderStatusLabel(status){return status==="novo"?"Novo":status==="prepar
 function orderStatusClass(status){return ["novo","preparo","pronto","finalizado"].includes(status)?status:"novo"}
 function formatOrderTime(iso){try{return new Date(iso).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}catch{return ""}}
 function restaurantOrderCard(o){
-  const items=(o.items||[]).map(x=>`<div>${x.qty}x ${x.name}</div>`).join("");
+  const items=(o.items||[]).map(x=>`<div>${x.qty}x ${escapeHTML(x.name)}${x.note?`<small class="order-note">↳ ${escapeHTML(x.note)}</small>`:""}</div>`).join("");
   const nextButtons=o.status==="novo"?`<button onclick="setOrderStatus('${o.id}','preparo')">Iniciar preparo</button>`:o.status==="preparo"?`<button onclick="setOrderStatus('${o.id}','pronto')">Marcar pronto</button>`:o.status==="pronto"?`<button onclick="setOrderStatus('${o.id}','finalizado')">Finalizar</button>`:`<span class="donecheck">✓ Finalizado</span>`;
   return `<article class="restaurant-order-card status-${orderStatusClass(o.status)}"><div class="restaurant-order-head"><div><small>Mesa ${o.mesa||"--"} • ${formatOrderTime(o.createdAt)}</small><h3>Pedido #${String(o.id).slice(-4)}</h3></div><span class="order-status-pill ${orderStatusClass(o.status)}">${orderStatusLabel(o.status)}</span></div><div class="restaurant-order-items">${items}</div><div class="restaurant-order-total">Total <b>${money(Number(o.total)||0)}</b></div><div class="restaurant-order-actions">${nextButtons}</div></article>`;
 }
@@ -716,15 +602,13 @@ function updateOrdersSidebarBadge(orders){
 }
 function playNewOrderSound(){
   try{
-    const ctx=new (window.AudioContext||window.webkitAudioContext)();
-    const osc=ctx.createOscillator();
-    const gain=ctx.createGain();
-    osc.type="sine";
-    osc.frequency.setValueAtTime(880,ctx.currentTime);
-    gain.gain.setValueAtTime(.06,ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+.22);
-    osc.connect(gain);gain.connect(ctx.destination);
-    osc.start();osc.stop(ctx.currentTime+.22);
+    unlockOrderAudio();
+    const ctx=notificationAudioCtx;
+    if(!ctx||ctx.state!=="running")return;
+    const osc=ctx.createOscillator(),gain=ctx.createGain();
+    osc.type="sine";osc.frequency.setValueAtTime(880,ctx.currentTime);
+    gain.gain.setValueAtTime(.08,ctx.currentTime);gain.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+.28);
+    osc.connect(gain);gain.connect(ctx.destination);osc.start();osc.stop(ctx.currentTime+.28);
   }catch{}
 }
 function showOrderToast(order){
@@ -760,11 +644,30 @@ function updateOrderCounters(orders){
   const a=document.getElementById("countNovo"),b=document.getElementById("countPreparo"),c=document.getElementById("countPronto");if(a)a.textContent=counts.novo;if(b)b.textContent=counts.preparo;if(c)c.textContent=counts.pronto;
 }
 async function setOrderStatus(id,status){try{await apiUpdateOrderStatus(id,status);await loadRestaurantOrders()}catch(err){alert("Não consegui atualizar o pedido.")}}
+
+let notificationAudioCtx=null;
+function unlockOrderAudio(){
+  try{
+    if(!notificationAudioCtx)notificationAudioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    if(notificationAudioCtx.state==="suspended")notificationAudioCtx.resume();
+  }catch{}
+}
+function startRestaurantOrderMonitor(){
+  unlockOrderAudio();
+  loadRestaurantOrders();
+  if(!restaurantOrdersTimer)restaurantOrdersTimer=setInterval(loadRestaurantOrders,4000);
+}
+document.addEventListener("pointerdown",unlockOrderAudio,{once:true});
+document.addEventListener("keydown",unlockOrderAudio,{once:true});
 function openRestaurantOrders(){
   const admin=document.getElementById("adminApp"),main=document.querySelector(".main");if(!admin||!main)return;
+  document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));
+  document.querySelectorAll("nav button").forEach(x=>x.classList.remove("active"));
+  document.getElementById("ordersNavButton")?.classList.add("active");
+  const title=document.getElementById("pageTitle");if(title)title.textContent="Pedidos";
   let section=document.getElementById("restaurantOrdersSection");
-  if(!section){section=document.createElement("section");section.id="restaurantOrdersSection";section.className="restaurant-orders-section";section.innerHTML=`<div class="orders-title-row"><div><small>Operação</small><h2>Pedidos do restaurante</h2></div><button class="refreshorders" onclick="loadRestaurantOrders()">↻ Atualizar</button></div><div class="orders-counters"><div><span id="countNovo">0</span><small>Novos</small></div><div><span id="countPreparo">0</span><small>Em preparo</small></div><div><span id="countPronto">0</span><small>Prontos</small></div></div><div id="restaurantOrdersEmpty" class="orders-empty">Nenhum pedido recebido ainda.</div><div id="restaurantOrdersGrid" class="restaurant-orders-grid"></div>`;main.prepend(section)}
-  section.scrollIntoView({behavior:"smooth",block:"start"});loadRestaurantOrders();if(!restaurantOrdersTimer)restaurantOrdersTimer=setInterval(loadRestaurantOrders,5000);
+  if(!section){section=document.createElement("section");section.id="restaurantOrdersSection";section.className="restaurant-orders-section";section.innerHTML=`<div class="orders-hero"><div><span class="orders-kicker">Central de atendimento</span><h1>Pedidos do restaurante</h1><p>Acompanhe os pedidos da cozinha em tempo real.</p></div><div class="orders-live"><span></span> Operação ativa</div></div><div class="orders-toolbar"><div class="orders-counters"><div class="counter-new"><span id="countNovo">0</span><small>Novos pedidos</small></div><div class="counter-prep"><span id="countPreparo">0</span><small>Em preparo</small></div><div class="counter-ready"><span id="countPronto">0</span><small>Prontos</small></div></div><button class="refreshorders" onclick="loadRestaurantOrders()">↻ Atualizar pedidos</button></div><div id="restaurantOrdersEmpty" class="orders-empty">Nenhum pedido recebido ainda.</div><div id="restaurantOrdersGrid" class="restaurant-orders-grid"></div>`;main.prepend(section)}
+  section.classList.add("active");section.scrollIntoView({behavior:"smooth",block:"start"});loadRestaurantOrders();if(!restaurantOrdersTimer)restaurantOrdersTimer=setInterval(loadRestaurantOrders,5000);
 }
 
 document.addEventListener("DOMContentLoaded",()=>{
@@ -795,3 +698,5 @@ document.addEventListener("DOMContentLoaded",()=>{
   while(shell.firstChild)document.body.appendChild(shell.firstChild);
   renderCartPanel();
 });
+
+boot();

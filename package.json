@@ -1,11 +1,12 @@
 {
-  "name": "garcom-virtual-sabor-da-casa-v19",
-  "version": "19.0.0",
+  "name": "garcom-virtual-sabor-da-casa-v26",
+  "version": "26.0.0",
   "private": true,
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "start:local": "node server-local.js"
+    "start:local": "node server-local.js",
+    "test": "node tests/chat-engine.test.mjs && node tests/static-validation.mjs"
   },
   "engines": {
     "node": ">=20"
