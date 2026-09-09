@@ -5,7 +5,7 @@
     "category": "Pratos",
     "price": 25,
     "image": "fotos/frango-caseiro.jpg",
-    "status": "esgotado",
+    "status": "disponivel",
     "description": "Arroz, feijão, frango e salada.",
     "ingredients": "arroz, feijão, frango, salada"
   },

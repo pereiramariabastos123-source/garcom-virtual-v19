@@ -152,25 +152,29 @@ function updateCartBadge(){
 }
 function cartHTML(){
   if(!cart.length)return `<div class="emptycart">Seu pedido ainda está vazio.</div>`;
-  return `<div class="cartitems">${cart.map((x,index)=>`
-    <div class="cartitem">
+  return `<div class="cartitems">${cart.map((x,index)=>{
+    const official=products.find(p=>p.id===x.id);
+    const allowNote=official && official.category!=="Bebidas";
+    return `<div class="cartitem">
       <div class="cartproductrow">
         ${x.image?`<img class="cartthumb" src="${escapeHTML(x.image)}" alt="${escapeHTML(x.name)}">`:`<div class="cartthumb cartthumb-empty">📷</div>`}
         <div class="cartproductinfo">
           <div class="cartitem-main"><b>${escapeHTML(x.name)}</b><span>${money(x.price)}</span></div>
-          ${x.note?`<div class="cart-note"><b>Observação:</b> ${escapeHTML(x.note)}</div>`:""}
+          ${allowNote?`<label class="cart-note-editor"><span>✏️ Observação <small>(opcional)</small></span><input maxlength="180" value="${escapeHTML(x.note||"")}" placeholder="Ex.: sem tomate" oninput="updateCartNote(${index},this.value)"></label>`:(x.note?`<div class="cart-note"><b>Observação:</b> ${escapeHTML(x.note)}</div>`:"")}
           <div class="qtyrow">
-            <button onclick="changeQty(${index},-1)">−</button>
-            <span>${x.qty}</span>
-            <button onclick="changeQty(${index},1)">+</button>
-            <button class="trashbtn" onclick="removeFromCart(${index})">🗑️</button>
+            <button onclick="changeQty(${index},-1)">−</button><span>${x.qty}</span><button onclick="changeQty(${index},1)">+</button><button class="trashbtn" onclick="removeFromCart(${index})">🗑️</button>
           </div>
         </div>
       </div>
-    </div>`).join("")}</div>
+    </div>`}).join("")}</div>
     <div class="cartsummary"><span>Total</span><b>${money(cartTotal())}</b></div>
+    <div class="before-confirm-note">Confira os itens e as observações antes de enviar.</div>
     <button class="confirmbtn" onclick="confirmOrder()">✓ Confirmar pedido</button>
     <button class="clearbtn" onclick="clearCart()">🗑 Limpar pedido</button>`;
+}
+function updateCartNote(index,value){
+  if(!cart[index])return;
+  cart[index].note=String(value||"").trimStart().slice(0,180);
 }
 function renderCartPanel(){updateCartBadge();const body=document.getElementById("cartPanelBody");if(body)body.innerHTML=cartHTML()}
 function openCart(){renderCartPanel();document.getElementById("cartPanel")?.classList.add("open");document.getElementById("cartOverlay")?.classList.add("open")}
@@ -180,13 +184,13 @@ function changeQty(index,delta){
 }
 function removeFromCart(index){if(index>=0&&index<cart.length)cart.splice(index,1);renderCartPanel()}
 function showCart(msg=""){if(msg)addBot(msg);openCart()}
-function clearCart(){cart=[];conversation.awaitingFinalize=false;renderCartPanel();addBot("Pedido limpo.")}
+function clearCart(){cart=[];conversation.awaitingFinalize=false;renderCartPanel();showClientToast("Pedido limpo.")}
 async function confirmOrder(){
-  if(!cart.length){addBot("Seu pedido está vazio.");openCart();return}
+  if(!cart.length){showClientToast("Seu pedido está vazio.");openCart();return}
   const draft={mesa:String(activeMesa).padStart(2,"0"),items:cart.map(x=>({id:x.id,name:x.name,price:x.price,qty:x.qty,note:x.note||""})),total:cartTotal()};
   try{
     const order=await apiCreateOrder(draft);lastConfirmedOrder=order;cart=[];conversation.awaitingFinalize=false;renderCartPanel();closeCart();showConfirmedOrder(order);
-  }catch(err){console.warn(err);addBot("Não consegui enviar o pedido agora. Tente novamente.")}
+  }catch(err){console.warn(err);showClientToast("Não consegui enviar o pedido agora. Tente novamente.")}
 }
 function statusStepsHTML(status){
   const order=["novo","preparo","pronto","finalizado"];
@@ -424,8 +428,12 @@ document.getElementById("testarCliente").addEventListener("click",()=>window.ope
 /* Cliente */
 function normalize(s){return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim()}
 function available(){return products.filter(p=>p.status==="disponivel")}
-function addUser(t){const d=document.createElement("div");d.className="msg user";d.textContent=t;document.getElementById("chatThread").appendChild(d);d.scrollIntoView({block:"nearest"})}
-function addBot(h){const d=document.createElement("div");d.className="msg bot";d.innerHTML=h;document.getElementById("chatThread").appendChild(d);d.scrollIntoView({block:"nearest"})}
+function addUser(t){}
+function addBot(h){
+  const area=document.getElementById("clientNoticeArea");
+  if(!area)return;
+  const d=document.createElement("div");d.className="client-notice";d.innerHTML=h;area.prepend(d);
+}
 function pcard(p){return `<div class="product-card">${p.image?`<img src="${p.image}" alt="${p.name}">`:""}<div class="product-info"><h3>${p.name}</h3><div class="price">${money(p.price)}</div><div class="desc">${p.description||""}</div></div></div>`}
 function findProduct(q){
   const nq=normalize(q); let best=null,score=0;
@@ -489,13 +497,35 @@ function productVisualCard(p){
     </div>
   </article>`;
 }
-function openVisualMenu(category){
+function refreshOpenVisualMenu(){
+  const wrap=document.getElementById("menuVisualOverlay");
+  if(!wrap||!wrap.dataset.category)return;
+  const category=wrap.dataset.category;
+  const grid=wrap.querySelector(".menuvisual-grid");
+  if(!grid)return;
+  const items=visibleProducts(category);
+  grid.innerHTML=items.length?items.map(productVisualCard).join(""):'<div class="emptycart">Nenhum item nesta categoria.</div>';
+}
+async function syncClientMenu(){
+  try{
+    const remote=await apiLoadMenu();
+    if(!Array.isArray(remote)||!remote.length)return;
+    const before=JSON.stringify(products.map(p=>[p.id,p.status,p.price,p.name,p.image,p.description]));
+    const after=JSON.stringify(remote.map(p=>[p.id,p.status,p.price,p.name,p.image,p.description]));
+    products=remote;
+    storageSet(STORAGE_PRODUCTS,JSON.stringify(products));
+    if(before!==after)refreshOpenVisualMenu();
+  }catch(err){console.warn("Não foi possível atualizar o cardápio do cliente.",err)}
+}
+async function openVisualMenu(category){
+  await syncClientMenu();
   const items=visibleProducts(category);
   const title=category==="Pratos"?"🍛 Pratos":category==="Lanches"?"🍔 Lanches":"🥤 Bebidas";
   closeVisualMenu();
   const wrap=document.createElement("div");
   wrap.id="menuVisualOverlay";
   wrap.className="menuvisual-overlay open";
+  wrap.dataset.category=category;
   wrap.innerHTML=`<section class="menuvisual-panel">
     <div class="menuvisual-head">
       <div><small>Cardápio</small><h2>${title}</h2></div>
@@ -506,18 +536,58 @@ function openVisualMenu(category){
   document.body.appendChild(wrap);
 }
 function closeVisualMenu(){document.getElementById("menuVisualOverlay")?.remove()}
+function showClientToast(text){
+  document.getElementById("clientToast")?.remove();
+  const t=document.createElement("div");t.id="clientToast";t.className="client-toast";t.textContent=text;document.body.appendChild(t);
+  setTimeout(()=>t.classList.add("show"),10);setTimeout(()=>{t.classList.remove("show");setTimeout(()=>t.remove(),220)},1800);
+}
 function quickAddProduct(id){
   const p=products.find(x=>x.id===id);
   if(!p||p.status!=="disponivel")return;
   cartAddByName(p.name,1);
   renderCartPanel();
-  addBot(`${p.name} adicionado ao pedido.`);
+  showClientToast(`${p.name} adicionado ao pedido.`);
 }
 function visualRecommendation(){
   const p=available().filter(x=>x.category!=="Bebidas").sort((a,b)=>a.price-b.price).find(x=>x.price<=30) || available().find(x=>x.category!=="Bebidas");
   if(!p){addBot("Não encontrei uma opção disponível.");return}
   conversation.focusedProduct=p.name;
   addBot(`Recomendo ${p.name} por ${money(p.price)}.${pcard(p)}<button class="inlineadd" onclick="quickAddProduct(${p.id})">+ Adicionar ao pedido</button>`);
+}
+
+function getComboDefinitions(){
+  const pairs=[
+    ["X-Salada","Coca-Cola 350 ml"],
+    ["Frango Caseiro","Suco de Laranja"],
+    ["Bife Acebolado","Guaraná 350 ml"],
+    ["X-Burger","Coca-Cola 350 ml"]
+  ];
+  return pairs.map((names,i)=>{
+    const items=names.map(findProductExactName).filter(Boolean);
+    if(items.length!==2 || items.some(x=>x.status!=="disponivel"))return null;
+    return {id:i+1,items,total:items.reduce((s,x)=>s+x.price,0)};
+  }).filter(Boolean);
+}
+function comboVisualCard(c){
+  const meal=c.items[0],drink=c.items[1];
+  return `<article class="combo-card">
+    <div class="combo-photos">
+      <img src="${escapeHTML(meal.image||"")}" alt="${escapeHTML(meal.name)}">
+      <img src="${escapeHTML(drink.image||"")}" alt="${escapeHTML(drink.name)}">
+    </div>
+    <div class="combo-body"><small>COMBO</small><h3>${escapeHTML(meal.name)} + ${escapeHTML(drink.name)}</h3><p>Os dois itens juntos no mesmo pedido.</p><b>${money(c.total)}</b><button onclick="addCombo(${c.id})">+ Adicionar combo</button></div>
+  </article>`;
+}
+function openCombosMenu(){
+  const combos=getComboDefinitions();
+  closeVisualMenu();
+  const wrap=document.createElement("div");wrap.id="menuVisualOverlay";wrap.className="menuvisual-overlay open";
+  wrap.innerHTML=`<section class="menuvisual-panel"><div class="menuvisual-head"><div><small>Cardápio</small><h2>🍽️ Combos</h2></div><button onclick="closeVisualMenu()">✕</button></div><div class="menuvisual-grid combo-grid">${combos.length?combos.map(comboVisualCard).join(""):'<div class="emptycart">Nenhum combo disponível no momento.</div>'}</div></section>`;
+  document.body.appendChild(wrap);
+}
+function addCombo(id){
+  const combo=getComboDefinitions().find(x=>x.id===id);if(!combo)return;
+  combo.items.forEach(p=>cartAddByName(p.name,1));renderCartPanel();showClientToast("Combo adicionado ao pedido.");
 }
 
 function sendQuick(t){
@@ -540,7 +610,8 @@ async function boot(){
     document.getElementById("clientApp").hidden=false;
     document.getElementById("clientMesa").textContent="Mesa "+String(activeMesa).padStart(2,"0");
     const cartMesaEl=document.getElementById("cartMesa");if(cartMesaEl)cartMesaEl.textContent=String(activeMesa).padStart(2,"0");
-    document.getElementById("chatInput").addEventListener("keydown",e=>{if(e.key==="Enter")handleSend()});
+    setInterval(syncClientMenu,3000);
+
   }else{
     const allowed=await ensureAdminAccess();
     if(!allowed){

@@ -1,0 +1,12 @@
+PUBLICAÇÃO DA DEMONSTRAÇÃO
+
+1. Envie os arquivos desta pasta para o repositório GitHub ligado ao Render.
+2. NÃO envie .env, node_modules ou a pasta do Node portátil.
+3. No Render, mantenha:
+   ADMIN_PASSWORD = sua senha do painel
+   PUBLIC_BASE_URL = URL pública do serviço
+4. Não é necessário OPENAI_API_KEY nem OPENAI_MODEL.
+5. Após o deploy, teste:
+   Cliente: /?modo=cliente&mesa=01
+   Painel: URL principal do serviço
+6. Faça um pedido teste com observação e confira a comanda.

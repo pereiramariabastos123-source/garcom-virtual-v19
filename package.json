@@ -1,6 +1,6 @@
 {
-  "name": "garcom-virtual-sabor-da-casa-v26",
-  "version": "26.0.0",
+  "name": "garcom-virtual-sabor-da-casa-v29-demonstracao",
+  "version": "29.0.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -13,7 +13,6 @@
   },
   "dependencies": {
     "dotenv": "^17.2.2",
-    "express": "^5.1.0",
-    "openai": "^5.19.1"
+    "express": "^5.1.0"
   }
 }

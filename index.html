@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Garçom Virtual V26 — Sabor da Casa</title>
+<title>Garçom Virtual V29 Demonstração — Sabor da Casa</title>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -27,7 +27,7 @@
     </header>
 
     <section id="inicio" class="page active">
-      <div class="hero"><h1>Restaurante Sabor da Casa</h1><p>V26 — atendimento com IA e ações validadas pelo cardápio oficial.</p></div>
+      <div class="hero"><h1>Restaurante Sabor da Casa</h1><p>Demonstração — cardápio digital com pedidos por QR Code.</p></div>
       <div class="stats">
         <div><span>🍽️</span><b id="prodCount">0</b><small>Produtos</small></div>
         <div><span>🟢</span><b id="availableCount">0</b><small>Disponíveis</small></div>
@@ -73,22 +73,20 @@
 <div id="clientApp" class="client-shell" hidden>
   <div class="client-top">
     <div class="restaurant-line"><span class="restaurant-logo">🍽️</span><div><small>RESTAURANTE</small><strong>Sabor da Casa</strong></div><span class="online-dot">● Online</span></div>
-    <div class="waiter-head"><div class="waiter-avatar">👨‍🍳</div><div><h1>Garçom Virtual</h1><div>Seu atendimento digital</div></div></div>
+    <div class="waiter-head"><div class="waiter-avatar">👨‍🍳</div><div><h1>Cardápio Digital</h1><div>Seu pedido direto da mesa</div></div></div>
   </div>
   <div class="client-content">
     <div class="mesa-banner"><div><small>ATENDIMENTO DA</small><b id="clientMesa"></b></div><span>✓ Conectado</span></div>
-    <div class="welcome-card"><b>Olá! Que bom ter você aqui 👋</b><span>Posso mostrar o cardápio, fotos, preços e ajudar você a escolher.</span></div>
+    <div class="welcome-card"><b>Olá! Que bom ter você aqui 👋</b><span>Escolha uma categoria, veja as fotos e monte seu pedido.</span></div>
     <div class="section-label">O que você gostaria?</div>
     <div class="quick">
-      <button onclick="sendQuick('ver pratos')"><span>🍛</span><b>Pratos</b><small>Ver opções</small></button>
-      <button onclick="sendQuick('ver lanches')"><span>🍔</span><b>Lanches</b><small>Ver opções</small></button>
-      <button onclick="sendQuick('ver bebidas')"><span>🥤</span><b>Bebidas</b><small>Ver opções</small></button>
-      <button onclick="sendQuick('tenho 30 reais')"><span>✨</span><b>Me recomenda</b><small>Até R$ 30</small></button>
+      <button onclick="openVisualMenu('Pratos')"><span>🍛</span><b>Pratos</b><small>Ver opções</small></button>
+      <button onclick="openVisualMenu('Lanches')"><span>🍔</span><b>Lanches</b><small>Ver opções</small></button>
+      <button onclick="openVisualMenu('Bebidas')"><span>🥤</span><b>Bebidas</b><small>Ver opções</small></button>
+      <button onclick="openCombosMenu()"><span>🍽️</span><b>Combos</b><small>Ver combinações</small></button>
     </div>
-    <div id="chatThread" class="chat-thread"><div class="msg bot">Pode falar comigo normalmente 😊 Por exemplo: <b>“me mostra o suco de laranja”</b> ou <b>“o que você recomenda?”</b></div></div>
-    <div class="composer-wrap">
-      <div class="inputrow"><input id="chatInput" placeholder="Pergunte sobre o cardápio..."><button onclick="handleSend()" aria-label="Enviar">➤</button></div>
-      <small>Garçom Virtual • Sabor da Casa</small>
+    <div id="clientNoticeArea" class="client-notice-area">
+      <div class="menu-help-card"><b>Monte seu pedido</b><span>Toque em uma categoria, escolha os itens e depois abra <strong>Meu pedido</strong> para revisar e enviar.</span></div>
     </div>
   </div>
 </div>

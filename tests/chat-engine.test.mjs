@@ -137,4 +137,20 @@ r=run("feche meu pedido");
 assert.equal(r.show_cart,true);
 assert.equal(r.add_items.length,0);
 
-console.log("OK: 52 verificações críticas do atendimento passaram.");
+console.log("OK: 59 verificações críticas do atendimento passaram.");
+
+// V27 SEM IA: continuidade deve funcionar sem serviço externo
+r=run("tem frango hoje?");
+assert.equal(r.context.focusedProduct,"Frango Caseiro");
+r=run("vou querer",{focusedProduct:"Frango Caseiro"});
+assert.equal(r.add_items[0].name,"Frango Caseiro");
+r=run("sim quero",{focusedProduct:"Frango Caseiro"});
+assert.equal(r.add_items[0].name,"Frango Caseiro");
+r=run("pode colocar",{focusedProduct:"X-Salada"});
+assert.equal(r.add_items[0].name,"X-Salada");
+r=run("quero esse",{focusedProduct:"Suco de Laranja"});
+assert.equal(r.add_items[0].name,"Suco de Laranja");
+r=run("qual a capital da frança?");
+assert.equal(r.handled,true);
+assert.equal(r.add_items.length,0);
+assert.match(r.reply,/cardápio|pedido/i);

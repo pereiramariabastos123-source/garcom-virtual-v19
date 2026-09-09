@@ -155,7 +155,7 @@ function isGreeting(q){
   return /^(oi|ola|bom dia|boa tarde|boa noite|e ai|opa)( tudo bem| tudo bom| tudo certo)?$/.test(q)
 }
 function greetingForHour(hour){const h=Number(hour);if(Number.isFinite(h)){if(h>=5&&h<12)return "Bom dia";if(h>=12&&h<18)return "Boa tarde";return "Boa noite"}return "Olá"}
-function isYes(q){return /^(sim|s|isso|isso mesmo|pode|pode sim|quero|ok|certo|confirmo|confirma)$/.test(q)}
+function isYes(q){return /^(sim|s|isso|isso mesmo|pode|pode sim|quero|sim quero|quero sim|ok|certo|confirmo|confirma)$/.test(q)}
 function isNo(q){return /^(nao|n|nao quero|agora nao|so isso)$/.test(q)}
 function wantsPhoto(q){return /\b(foto|imagem|fotografia)\b/.test(q) || /\b(cade|mostra|mostrar|ver)\b.*\b(dele|dela|produto|lanche|prato)\b/.test(q)}
 function wantsPrice(q){return /\b(preco|valor|quanto custa|quanto e)\b/.test(q)}
@@ -293,6 +293,15 @@ export function processDeterministicMessage({message,menu=[],context={}}){
     };
   }
 
+  // Continuação natural sem repetir o nome do produto.
+  // Ex.: depois de perguntar/ver a foto do Frango: "vou querer", "sim quero", "coloca esse".
+  if(!explicitProducts.length && focused && focused.status!=="oculto" && (
+    /^(vou querer|eu quero|quero|sim quero|quero sim|pode colocar|pode adicionar|adiciona|adicione|coloca|coloque|manda|traz|esse|essa|quero esse|quero essa|vou querer esse|vou querer essa)$/.test(q)
+  )){
+    if(focused.status!=="disponivel")return {...base,reply:statusReply(focused),context:{focusedProduct:focused.name}};
+    return {...base,reply:`Ok, ${focused.name}. Deseja finalizar seu pedido?`,add_items:[{name:focused.name,qty:1,note:""}],context:{focusedProduct:focused.name,awaitingFinalize:true}};
+  }
+
   // A named product without an order/photo intent gets a safe factual answer.
   if(explicitProducts.length){
     const p=explicitProducts[0];
@@ -317,9 +326,20 @@ export function processDeterministicMessage({message,menu=[],context={}}){
     const list=visible.filter(p=>p.category===cat&&p.status==="disponivel");
     return {...base,reply:list.length?`${cat}: ${list.map(p=>`${p.name} (${money(p.price)})`).join(", ")}.`:`Não há ${cat.toLowerCase()} disponíveis no momento.`};
   }
-  if(/\bcardapio\b/.test(q))return {...base,handled:false};
+  if(/\bcardapio\b/.test(q)){
+    const cats=["Pratos","Lanches","Bebidas"].map(cat=>{
+      const n=visible.filter(p=>p.category===cat&&p.status==="disponivel").length;
+      return n?`${cat} (${n})`:null;
+    }).filter(Boolean);
+    return {...base,reply:cats.length?`Temos ${formatList(cats)}. Você pode escolher uma categoria ou dizer o nome do produto.`:"O cardápio está sem itens disponíveis no momento."};
+  }
 
-  return {...base,handled:false};
+  if(/\b(obrigado|obrigada|valeu)\b/.test(q))return {...base,reply:"Por nada! Posso ajudar com mais alguma coisa do seu pedido?"};
+  if(/\b(ajuda|como funciona|o que posso pedir)\b/.test(q))return {...base,reply:"Posso mostrar o cardápio, preços, fotos, ingredientes e montar seu pedido."};
+  if(/\b(cancelar|limpar|apagar)\b.*\b(pedido|carrinho)\b/.test(q))return {...base,reply:"Você pode abrir Meu pedido e usar a opção de limpar o pedido.",show_cart:true};
+
+  // V27 sem IA: nenhuma mensagem é enviada a serviço externo.
+  return {...base,reply:"Posso ajudar com o cardápio, preços, fotos e seu pedido. Diga o produto ou escolha Pratos, Lanches ou Bebidas."};
 }
 
 export function safeAiReply(raw){
